@@ -54,16 +54,27 @@ object Velocity : Module("Velocity", Category.COMBAT) {
             "Reverse", "SmoothReverse", "JumpReset", "Glitch", "Legit",
             "GhostBlock", "Vulcan", "S32Packet", "MatrixReduce", 
             "Delay", "Hypixel", "HypixelAir",
-            "Click", "BlocksMC", "3FMC", "GrimReduce", "Intave",
-            "GrimTest"
+            "Click", "BlocksMC", "3FMC", "GrimReduce", "LegitSmart", "Intave"
         ), "Simple"
     )
 
+    // Intave
+    private val intaveJumpResetCount by int("IntaveJumpResetCount", 2, 1..10) { mode == "Intave" }
+    private var intaveJumpCount = 0
+    private var intaveIsFallDamage = false
+    private var intaveLastAttackTime = 0L
+    private val intaveLastAttackTimeToReduce = 4000L
+    private val intaveReduceFactor = 0.6
+    private val intaveHurtTime = 1..3
+    
+    // LegitSmart
+    private val legitSmartJumpLimit by int("LegitSmartJumpLimit", 2, 1..5) { mode == "LegitSmart" }
+
     // GrimReduce
-    private val reduceGrimFactor by float("GrimReduceFactor", 0.6f, 0f..1f) { mode == "GrimReduce" }
-    private val reduceGrimMinHurtTime by int("GrimMinHurtTime", 5, 0..10) { mode == "GrimReduce" }
-    private val reduceGrimMaxHurtTime by int("GrimMaxHurtTime", 10, 0..20) { mode == "GrimReduce" }
-    private val reduceGrimOnlyGround by boolean("OnlyGround", false) { mode == "GrimReduce" }
+    private val reduceFactor by float("ReduceFactor", 0.6f, 0f..1f) { mode == "reduce" }
+    private val reduceMinHurtTime by int("ReduceMinHurtTime", 5, 0..10) { mode == "reduce" }
+    private val reduceMaxHurtTime by int("ReduceMaxHurtTime", 10, 0..20) { mode == "reduce" }
+    private val reduceOnlyGround by boolean("OnlyGround", false) { mode == "reduce" }
 
     private val horizontal by float("Horizontal", 0F, -1F..1F) { mode in arrayOf("Simple", "AAC", "Legit") }
     private val vertical by float("Vertical", 0F, -1F..1F) { mode in arrayOf("Simple", "Legit") }
@@ -90,16 +101,10 @@ object Velocity : Module("Velocity", Category.COMBAT) {
     // Legit
     private val legitDisableInAir by boolean("DisableInAir", true) { mode == "Legit" }
 
-    // Chance
-    private val chance by int("Chance", 100, 0..100) { mode == "JumpReset" || mode == "Legit" }
+    // Chance for Legit
+    private val chance by int("Chance", 100, 0..100) { mode == "Legit" }
     
-    // JumpReset
-    private val jumpCooldownMode by choices("JumpCooldownMode", arrayOf("Ticks", "ReceivedHits"), "Ticks")
-    { mode == "JumpReset" }
-    private val ticksUntilJump by int("TicksUntilJump", 4, 0..20)
-    { jumpCooldownMode == "Ticks" && mode == "JumpReset" }
-    private val hitsUntilJump by int("ReceivedHitsUntilJump", 2, 0..5)
-    { jumpCooldownMode == "ReceivedHits" && mode == "JumpReset" }
+    private val jumpChance by int("Chance", 100, 0..100) { mode == "JumpReset" }
 
     // Ghost Block
     private val hurtTimeRange by intRange("HurtTime", 1..9, 1..10) {
@@ -111,22 +116,13 @@ object Velocity : Module("Velocity", Category.COMBAT) {
     var delayMode = false
 
     // GrimReduce
-    private val grimReduceTicks by int("GrimReduceTicks", 4, 1..10) { mode == "grimreduce" }
-    private val grimReduceAirOnly by boolean("GrimReduceAirOnly", true) { mode == "grimreduce" }
-    private val grimReduceHorizontal by float("GrimReduceHorizontal", 0.62f, 0f..1f) { mode == "grimreduce" }
-    private val grimReduceVertical by float("GrimReduceVertical", 0.62f, 0f..1f) { mode == "grimreduce" }
+    private val reduceTicks by int("ReduceTicks", 4, 1..10) { mode == "reduce" }
+    private val reduceAirOnly by boolean("ReduceAirOnly", true) { mode == "reduce" }
+    private val reduceHorizontal by float("ReduceHorizontal", 0.62f, 0f..1f) { mode == "reduce" }
+    private val reduceVertical by float("ReduceVertical", 0.62f, 0f..1f) { mode == "reduce" }
 
-    // Intave options
-    private val intaveHReduce by float("Factor", 0.6f, 0.6f..1f) { mode == "Intave" }
-    private val intaveHurtTime by intRange("HurtTime", 5..7, 1..10) { mode == "Intave" }
-    private val intaveLastAttackTimeToReduce by int("LastAttackTimeToReduce", 2000, 1..10000) { mode == "Intave" }
-    private val intaveJumpChance by float("JumpChance", 50f, 0f..100f) { mode == "Intave" }
-    private val intaveRandomizeDelay by boolean("RandomizeDelay", false) { mode == "Intave" }
-    private val intaveDelayTicks by intRange("DelayTicks", 0..5, 0..10) { mode == "Intave" && intaveRandomizeDelay }
-    private var intaveIsFallDamage = false
-    private var intaveCurrentDelay = 0
-    private var intaveDelayCounter = 0
-    private var intaveLastAttackTime = 0L
+    // Values
+    private var legitSmartJumpCount = 0
 
     private val pauseOnExplosion by boolean("PauseOnExplosion", true)
     private val ticksToPause by int("TicksToPause", 20, 1..50) { pauseOnExplosion }
@@ -136,12 +132,7 @@ object Velocity : Module("Velocity", Category.COMBAT) {
     private val bafmcChance by int("3fmcChance", 100, 0..100) { mode == "3FMC" }
     private val bafmcDisableInAir by boolean("DisableInAir", true) { mode == "3FMC" }
 
-    // GrimTest options
-    private val grimReduceFactor by float("GrimFactor", 0.6f, 0f..1f) { mode == "GrimTest" }
-    private val grimMinHurtTime by int("GrimMinHurtTime", 5, 0..10) { mode == "GrimTest" }
-    private val grimMaxHurtTime by int("GrimMaxHurtTime", 10, 0..20) { mode == "GrimTest" }
-    private val grimOnlyGround by boolean("OnlyGround", false) { mode == "GrimTest" }
-    private val grimDebug by boolean("DebugMessage", false) { mode == "GrimTest" }
+    private var lastGrimVelocityTime = 0L
 
     // TODO: Could this be useful in other modes? (Jump?)
     // Limits
@@ -206,6 +197,8 @@ object Velocity : Module("Velocity", Category.COMBAT) {
         pauseTicks = 0
         mc.thePlayer?.speedInAir = 0.02F
         timerTicks = 0
+        legitSmartJumpCount = 0
+        intaveJumpCount = 0
         reset()
     }
     
@@ -221,17 +214,41 @@ object Velocity : Module("Velocity", Category.COMBAT) {
             return@handler
 
         when (mode.lowercase()) {
-            "grimreduce" -> {
-                if (hasReceivedVelocity && thePlayer.hurtTime in reduceGrimMinHurtTime..reduceGrimMaxHurtTime) {
-                    thePlayer.motionX *= reduceGrimFactor
-                    thePlayer.motionY *= reduceGrimFactor
-                    thePlayer.motionZ *= reduceGrimFactor
+            "legitsmart" -> {
+                if (hasReceivedVelocity) {
+                    if (thePlayer.onGround && 
+                        thePlayer.hurtTime == 9 && 
+                        thePlayer.isSprinting && 
+                        mc.currentScreen == null) {
+            
+                        if (legitSmartJumpCount > legitSmartJumpLimit) {
+                            legitSmartJumpCount = 0
+                        } else {
+                            legitSmartJumpCount++
+                            if (thePlayer.ticksExisted % 5 != 0) {
+                                thePlayer.tryJump()
+                            }
+                        }
+                    } else if (thePlayer.hurtTime == 8) {
+                        hasReceivedVelocity = false
+                        legitSmartJumpCount = 0
+                    }
+                }
+            }
+            
+            "reduce" -> {
+                if (hasReceivedVelocity && thePlayer.hurtTime in reduceMinHurtTime..reduceMaxHurtTime) {
+                    thePlayer.motionX *= reduceFactor
+                    thePlayer.motionY *= reduceFactor
+                    thePlayer.motionZ *= reduceFactor
                     
-                    if (reduceGrimOnlyGround && !thePlayer.onGround) {
+                    if (reduceOnlyGround && !thePlayer.onGround) {
                         hasReceivedVelocity = false
                     }
                 }
             }
+            
+
             
             "glitch" -> {
                 thePlayer.noClip = hasReceivedVelocity
@@ -352,15 +369,15 @@ object Velocity : Module("Velocity", Category.COMBAT) {
                     thePlayer.motionZ *= horizontalMod 
                     thePlayer.motionY *= verticalMod
                 }
-            }                "grimreduce" -> {
+            }                "reduce" -> {
                 if (!hasReceivedVelocity) return@handler
 
                 if (thePlayer.hurtTime > 0) {
-                    if (thePlayer.hurtTime <= grimReduceTicks) {
-                        if (!grimReduceAirOnly || !thePlayer.onGround) {
-                            thePlayer.motionX *= grimReduceHorizontal
-                            thePlayer.motionY *= grimReduceVertical 
-                            thePlayer.motionZ *= grimReduceHorizontal
+                    if (thePlayer.hurtTime <= reduceTicks) {
+                        if (!reduceAirOnly || !thePlayer.onGround) {
+                            thePlayer.motionX *= reduceHorizontal
+                            thePlayer.motionY *= reduceVertical 
+                            thePlayer.motionZ *= reduceHorizontal
                         }
                     }
                 } else {
@@ -484,7 +501,6 @@ object Velocity : Module("Velocity", Category.COMBAT) {
         val thePlayer = mc.thePlayer ?: return@handler
 
         val packet = event.packet
-
         if (!handleEvents())
             return@handler
 
@@ -509,6 +525,10 @@ object Velocity : Module("Velocity", Category.COMBAT) {
             }
 
                 when (mode.lowercase()) {
+                "legitsmart" -> {
+                    hasReceivedVelocity = true
+                    velocityTimer.reset()
+                }
                 "simple" -> handleVelocity(event)
 
                 "aac", "reverse", "smoothreverse", "aaczero", "ghostblock" -> hasReceivedVelocity = true            "jumpreset" -> {
@@ -546,35 +566,7 @@ object Velocity : Module("Velocity", Category.COMBAT) {
                     }
                 }
 
-                "grimtest" -> {
-                    if (grimDebug) {
-                        ClientUtils.displayChatMessage("[GrimTest] Velocity packet received")
-                    }
-                    
-                    if (packet is S12PacketEntityVelocity && packet.entityID == thePlayer.entityId) {
-                        if (grimOnlyGround && !thePlayer.onGround) {
-                            if (grimDebug) {
-                                ClientUtils.displayChatMessage("[GrimTest] Ignored - Player not on ground")
-                            }
-                            return@handler
-                        }
 
-                        if (thePlayer.hurtTime in grimMinHurtTime..grimMaxHurtTime) {
-                            if (grimDebug) {
-                                ClientUtils.displayChatMessage("[GrimTest] Reducing velocity: X=${packet.motionX}, Y=${packet.motionY}, Z=${packet.motionZ}")
-                            }
-
-                            packet.motionX = (packet.motionX * grimReduceFactor).toInt()
-                            packet.motionY = (packet.motionY * grimReduceFactor).toInt()
-                            packet.motionZ = (packet.motionZ * grimReduceFactor).toInt()
-                        }
-                    } else if (packet is S27PacketExplosion) {
-                        if (grimDebug) {
-                            ClientUtils.displayChatMessage("[GrimTest] Cancelling explosion knockback")
-                        }
-                        event.cancelEvent()
-                    }
-                }
                 
                 "intave" -> {
                     if (packet is S12PacketEntityVelocity && packet.entityID == thePlayer.entityId) {
@@ -584,12 +576,16 @@ object Velocity : Module("Velocity", Category.COMBAT) {
 
                         intaveIsFallDamage = velocityX == 0.0 && velocityZ == 0.0 && velocityY < 0
 
-                        if (thePlayer.hurtTime in intaveHurtTime && System.currentTimeMillis() - intaveLastAttackTime <= intaveLastAttackTimeToReduce) {
-                            packet.motionX = (packet.motionX * intaveHReduce).toInt()
-                            packet.motionZ = (packet.motionZ * intaveHReduce).toInt()
+                        if (thePlayer.hurtTime in intaveHurtTime && 
+                            System.currentTimeMillis() - intaveLastAttackTime <= intaveLastAttackTimeToReduce) {
+                            
+                            packet.motionX = (packet.motionX * intaveReduceFactor).toInt()
+                            packet.motionZ = (packet.motionZ * intaveReduceFactor).toInt()
+
+                            intaveLastAttackTime = System.currentTimeMillis()
                         }
                     } else if (packet is S27PacketExplosion) {
-                        event.cancelEvent() 
+                        event.cancelEvent()
                     }
                 }
 
@@ -763,38 +759,29 @@ object Velocity : Module("Velocity", Category.COMBAT) {
         val player = mc.thePlayer ?: return@handler
 
         if (mode == "jumpreset" && hasReceivedVelocity) {
-            if (player.onGround && player.hurtTime >= 9 && nextInt(endExclusive = 100) < chance) {
+            if (player.onGround && nextInt(endExclusive = 100) < jumpChance) {
                 player.tryJump()
+                player.motionX *= 0.6
+                player.motionZ *= 0.6
             }
             hasReceivedVelocity = false
             return@handler
         }
-        
-        if (mode == "intave") {
-            val shouldJump = Math.random() * 100 < intaveJumpChance && player.hurtTime > 5 && !intaveIsFallDamage
-            val canJump = player.onGround && mc.currentScreen !is net.minecraft.client.gui.inventory.GuiInventory
-            val shouldFinallyJump = shouldJump && canJump
 
-            if (intaveRandomizeDelay) {
-                intaveDelayCounter++
-
-                if (intaveDelayCounter >= intaveCurrentDelay) {
-                    if (shouldFinallyJump) {
-                        player.tryJump()
-                    }
-                    intaveDelayCounter = 0
-                    intaveCurrentDelay = intaveDelayTicks.random()
+        if (mode == "Intave" && hasReceivedVelocity) {
+            if (player.hurtTime == 9) {
+                intaveJumpCount++
+                if (intaveJumpCount % intaveJumpResetCount == 0 && 
+                    player.onGround && 
+                    player.isSprinting && 
+                    mc.currentScreen == null) {
+                    player.tryJump()
+                    intaveJumpCount = 0
                 }
             } else {
-                if (shouldFinallyJump) {
-                    player.tryJump()
-                }
+                hasReceivedVelocity = false
+                intaveJumpCount = 0
             }
-        }
-
-        when (jumpCooldownMode.lowercase()) {
-            "ticks" -> limitUntilJump++
-            "receivedhits" -> if (player.hurtTime == 9) limitUntilJump++
         }
     }
 
@@ -820,12 +807,6 @@ object Velocity : Module("Velocity", Category.COMBAT) {
                 }
             }
         }
-    }
-
-    private fun shouldJump() = when (jumpCooldownMode.lowercase()) {
-        "ticks" -> limitUntilJump >= ticksUntilJump
-        "receivedhits" -> limitUntilJump >= hitsUntilJump
-        else -> false
     }
 
     private fun handleVelocity(event: PacketEvent) {

@@ -93,6 +93,7 @@ object ModuleManager : Listenable, Collection<Module> by MODULE_REGISTRY {
             ComponentOnHover,
             ConsoleSpammer,
             Criticals,
+            Criticals2,
             ChatControl,
             Damage,
             Derp,
@@ -177,6 +178,7 @@ object ModuleManager : Listenable, Collection<Module> by MODULE_REGISTRY {
             ResourcePackSpoof,
             ReverseStep,
             Rotations,
+            RinReach,
             SafeWalk,
             Scaffold,
             ServerCrasher,
@@ -219,7 +221,8 @@ object ModuleManager : Listenable, Collection<Module> by MODULE_REGISTRY {
             SnakeGame,
             AutoPlace,
             AutoHitselect,
-            CombatHelper
+            CombatHelper,
+            WaterMark
         )
 
         registerModules(modules = modules)
